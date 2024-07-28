@@ -2,6 +2,7 @@ package packet
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 
 	"github.com/jnaraujo/mcprotocol/assert"
@@ -82,4 +83,19 @@ func ReadString(buf *bytes.Buffer) (string, error) {
 	}
 
 	return string(strBytes), nil
+}
+
+func ReadUShort(buf *bytes.Buffer) (uint16, error) {
+	b := make([]byte, 2)
+	_, err := buf.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint16(b), nil
+}
+
+func WriteUShort(buf *bytes.Buffer, value uint16) {
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, value)
+	buf.Write(b)
 }

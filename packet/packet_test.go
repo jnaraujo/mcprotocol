@@ -2,6 +2,7 @@ package packet
 
 import (
 	"bytes"
+	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -78,4 +79,26 @@ func TestReadString(t *testing.T) {
 	actual, err := ReadString(buf)
 	assert.Nil(t, err)
 	assert.Equal(t, expected, actual)
+}
+
+func TestReadUShort(t *testing.T) {
+	expected := make([]byte, 2)
+	binary.BigEndian.PutUint16(expected, 21312)
+
+	buf := new(bytes.Buffer)
+	buf.Write(expected)
+
+	value, err := ReadUShort(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, uint16(21312), value)
+}
+
+func TestWriteUShort(t *testing.T) {
+	expected := make([]byte, 2)
+	binary.BigEndian.PutUint16(expected, 13456)
+
+	buf := new(bytes.Buffer)
+	WriteUShort(buf, 13456)
+
+	assert.Equal(t, expected, buf.Bytes())
 }

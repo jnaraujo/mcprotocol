@@ -1,8 +1,8 @@
 package packet
 
 import (
+	"bytes"
 	"errors"
-	"io"
 
 	"github.com/jnaraujo/mcprotocol/assert"
 )
@@ -11,30 +11,15 @@ var (
 	ErrTooBig = errors.New("too big")
 )
 
-type Packet struct {
-	data []byte
-	n    int
+func WriteByte(buf *bytes.Buffer, value byte) error {
+	return buf.WriteByte(value)
 }
 
-func NewPacket(n int) *Packet {
-	return &Packet{
-		data: make([]byte, 0, n),
-		n:    n,
+func ReadByte(buf *bytes.Buffer) (byte, error) {
+	b, err := buf.ReadByte()
+	if err != nil {
+		return 0, err
 	}
-}
-
-func (p *Packet) WriteByte(b byte) error {
-	p.data = append(p.data, b)
-	return nil
-}
-
-func (p *Packet) ReadByte() (byte, error) {
-	if len(p.data) == 0 {
-		return 0, io.EOF
-	}
-
-	b := p.data[0]
-	p.data = p.data[1:]
 	return b, nil
 }
 
@@ -43,24 +28,24 @@ const (
 	continue_bits = 0x80 // if there is more bytes after current byte
 )
 
-func (p *Packet) WriteVarInt(value int32) {
+func WriteVarInt(buf *bytes.Buffer, value int32) {
 	assert.Assert(value >= 0, "value should the greater than 0")
 	for {
 		if (value & ^segment_bits) == 0 {
-			p.WriteByte(byte(value))
+			buf.WriteByte(byte(value))
 			return
 		}
-		p.WriteByte(byte((value & segment_bits) | continue_bits))
+		buf.WriteByte(byte((value & segment_bits) | continue_bits))
 		value >>= 7
 	}
 }
 
-func (p *Packet) ReadVarInt() (int32, error) {
+func ReadVarInt(buf *bytes.Buffer) (int32, error) {
 	val := int32(0)
 	pos := int32(0)
 
 	for {
-		currentByte, err := p.ReadByte()
+		currentByte, err := buf.ReadByte()
 		if err != nil {
 			return 0, err
 		}

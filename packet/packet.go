@@ -2,7 +2,9 @@ package packet
 
 import (
 	"errors"
-	"fmt"
+	"io"
+
+	"github.com/jnaraujo/mcprotocol/assert"
 )
 
 var (
@@ -26,10 +28,14 @@ func (p *Packet) WriteByte(b byte) error {
 	return nil
 }
 
-func (p *Packet) ReadByte() byte {
+func (p *Packet) ReadByte() (byte, error) {
+	if len(p.data) == 0 {
+		return 0, io.EOF
+	}
+
 	b := p.data[0]
 	p.data = p.data[1:]
-	return b
+	return b, nil
 }
 
 const (
@@ -38,7 +44,7 @@ const (
 )
 
 func (p *Packet) WriteVarInt(value int32) {
-	c := 0
+	assert.Assert(value >= 0, "value should the greater than 0")
 	for {
 		if (value & ^segment_bits) == 0 {
 			p.WriteByte(byte(value))
@@ -46,12 +52,6 @@ func (p *Packet) WriteVarInt(value int32) {
 		}
 		p.WriteByte(byte((value & segment_bits) | continue_bits))
 		value >>= 7
-		c += 1
-
-		if c > 15 {
-			fmt.Println("aaaa")
-			return
-		}
 	}
 }
 
@@ -60,7 +60,10 @@ func (p *Packet) ReadVarInt() (int32, error) {
 	pos := int32(0)
 
 	for {
-		currentByte := p.ReadByte()
+		currentByte, err := p.ReadByte()
+		if err != nil {
+			return 0, err
+		}
 		val |= int32(currentByte&segment_bits) << pos
 
 		// if there is no byte after the current

@@ -60,16 +60,22 @@ func TestWriteVarInt(t *testing.T) {
 	assert.Equal(t, []byte{0xff, 0xff, 0xff, 0xff, 0x07}, buf.Bytes()[3:8])
 }
 
-	assert.Equal(t, []byte{0x00}, p.data[0:1])
-	assert.Equal(t, []byte{0x80, 0x01}, p.data[1:3])
-	assert.Equal(t, []byte{0xff, 0xff, 0xff, 0xff, 0x07}, p.data[3:8])
+func TestWriteString(t *testing.T) {
+	expected := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer a elit ex."
+	buf := new(bytes.Buffer)
+	WriteString(buf, expected)
+	length, _ := ReadVarInt(buf)
 
-	actual, _ := p.ReadVarInt()
-	assert.Equal(t, int32(0), actual)
+	assert.Equal(t, int32(75), length)
+	assert.Equal(t, expected, buf.String())
+}
 
-	actual, _ = p.ReadVarInt()
-	assert.Equal(t, int32(128), actual)
+func TestReadString(t *testing.T) {
+	expected := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer a elit ex."
+	buf := new(bytes.Buffer)
+	WriteString(buf, expected)
 
-	actual, _ = p.ReadVarInt()
-	assert.Equal(t, int32(2147483647), actual)
+	actual, err := ReadString(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, expected, actual)
 }

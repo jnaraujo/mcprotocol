@@ -63,3 +63,23 @@ func ReadVarInt(buf *bytes.Buffer) (int32, error) {
 	}
 	return val, nil
 }
+
+func WriteString(buf *bytes.Buffer, str string) {
+	WriteVarInt(buf, int32(len(str)))
+	buf.WriteString(str)
+}
+
+func ReadString(buf *bytes.Buffer) (string, error) {
+	length, err := ReadVarInt(buf)
+	if err != nil {
+		return "", err
+	}
+
+	strBytes := make([]byte, length)
+	_, err = buf.Read(strBytes)
+	if err != nil {
+		return "", err
+	}
+
+	return string(strBytes), nil
+}

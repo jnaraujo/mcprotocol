@@ -10,7 +10,7 @@ import (
 
 func TestPacket(t *testing.T) {
 	p := NewPacket(nil, 2)
-	assert.Equal(t, PacketID(2), p.Id())
+	assert.Equal(t, PacketID(2), p.ID())
 }
 
 func TestPacketMarshalBinary(t *testing.T) {
@@ -38,6 +38,6 @@ func TestPacketUnmarshalBinary(t *testing.T) {
 	var p2 Packet
 	err = p2.UnmarshalBinary(b)
 	assert.Nil(t, err)
-	assert.Equal(t, PacketID(12), p2.Id())
+	assert.Equal(t, PacketID(12), p2.ID())
 	assert.Equal(t, []byte{4, 176}, p2.data.Bytes())
 }

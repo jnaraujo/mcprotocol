@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	segment_bits  = 0x7F // the value itself
-	continue_bits = 0x80 // if there is more bytes after current byte
+	segmentBits  = 0x7F // the value itself
+	continueBits = 0x80 // if there is more bytes after current byte
 )
 
 var (
@@ -48,10 +48,10 @@ func (buf *Buffer) ReadByte() (byte, error) {
 func (buf *Buffer) WriteVarInt(value int32) error {
 	assert.Assert(value >= 0, "value should the greater than 0")
 	for {
-		if (value & ^segment_bits) == 0 {
+		if (value & ^segmentBits) == 0 {
 			return buf.WriteByte(byte(value))
 		}
-		err := buf.WriteByte(byte((value & segment_bits) | continue_bits))
+		err := buf.WriteByte(byte((value & segmentBits) | continueBits))
 		if err != nil {
 			return err
 		}
@@ -67,9 +67,9 @@ func (buf *Buffer) ReadVarInt() (int32, error) {
 		if err != nil {
 			return 0, err
 		}
-		val |= int32(currentByte&segment_bits) << pos
+		val |= int32(currentByte&segmentBits) << pos
 		// if there is no byte after the current
-		if currentByte&continue_bits == 0 {
+		if currentByte&continueBits == 0 {
 			break
 		}
 		pos += 7
@@ -144,8 +144,8 @@ func (buf *Buffer) ReadVarLong() (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		val |= int64(currentByte&segment_bits) << pos
-		if currentByte&continue_bits == 0 {
+		val |= int64(currentByte&segmentBits) << pos
+		if currentByte&continueBits == 0 {
 			break
 		}
 		pos += 7
@@ -158,10 +158,10 @@ func (buf *Buffer) ReadVarLong() (int64, error) {
 
 func (buf *Buffer) WriteVarLong(value int64) error {
 	for {
-		if value & ^segment_bits == 0 {
+		if value & ^segmentBits == 0 {
 			return buf.WriteByte(byte(value))
 		}
-		err := buf.WriteByte(byte((value & segment_bits) | continue_bits))
+		err := buf.WriteByte(byte((value & segmentBits) | continueBits))
 		if err != nil {
 			return err
 		}

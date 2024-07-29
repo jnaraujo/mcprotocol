@@ -16,7 +16,7 @@ func NewPacket(data *raknet.Buffer, id PacketID) *Packet {
 	}
 }
 
-func (p *Packet) Id() PacketID {
+func (p *Packet) ID() PacketID {
 	return p.id
 }
 

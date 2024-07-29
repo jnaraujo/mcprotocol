@@ -27,9 +27,9 @@ func NewBuffer() *Buffer {
 	}
 }
 
-func NewBufferFrom(data *bytes.Buffer) *Buffer {
+func NewBufferFrom(data []byte) *Buffer {
 	return &Buffer{
-		data: data,
+		data: bytes.NewBuffer(data),
 	}
 }
 
@@ -151,4 +151,16 @@ func (buf *Buffer) WriteVarLong(value int64) error {
 		}
 		value >>= 7
 	}
+}
+
+func (buf *Buffer) WriteBytes(p []byte) (n int, err error) {
+	return buf.data.Write(p)
+}
+
+func (buf *Buffer) Len() int {
+	return buf.data.Len()
+}
+
+func (buf *Buffer) Bytes() []byte {
+	return buf.data.Bytes()
 }

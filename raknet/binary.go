@@ -120,6 +120,22 @@ func (buf *Buffer) WriteUShort(value uint16) error {
 	return err
 }
 
+func (buf *Buffer) WriteLong(value int64) error {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(value))
+	_, err := buf.data.Write(b)
+	return err
+}
+
+func (buf *Buffer) ReadLong() (int64, error) {
+	b := make([]byte, 8)
+	_, err := buf.data.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	return int64(binary.BigEndian.Uint64(b)), nil
+}
+
 func (buf *Buffer) ReadVarLong() (int64, error) {
 	val := int64(0)
 	pos := uint8(0)

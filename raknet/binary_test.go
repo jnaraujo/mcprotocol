@@ -120,3 +120,25 @@ func TestWriteVarLong(t *testing.T) {
 	assert.Equal(t, []byte{0x00}, buf.data.Bytes()[0:1])
 	assert.Equal(t, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f}, buf.data.Bytes()[1:10])
 }
+
+func TestReadLong(t *testing.T) {
+	expected := make([]byte, 8)
+	binary.BigEndian.PutUint64(expected, 9223372036854775807)
+
+	buf := NewBuffer()
+	buf.data.Write(expected)
+
+	value, err := buf.ReadLong()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(9223372036854775807), value)
+}
+
+func TestWriteLong(t *testing.T) {
+	expected := make([]byte, 8)
+	binary.BigEndian.PutUint64(expected, 9223372036854775807)
+
+	buf := NewBuffer()
+	buf.WriteLong(9223372036854775807)
+
+	assert.Equal(t, expected, buf.data.Bytes())
+}

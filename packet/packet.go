@@ -8,6 +8,11 @@ import (
 	"github.com/jnaraujo/mcprotocol/assert"
 )
 
+const (
+	segment_bits  = 0x7F // the value itself
+	continue_bits = 0x80 // if there is more bytes after current byte
+)
+
 var (
 	ErrTooBig = errors.New("too big")
 )
@@ -24,19 +29,16 @@ func ReadByte(buf *bytes.Buffer) (byte, error) {
 	return b, nil
 }
 
-const (
-	segment_bits  = 0x7F // the value itself
-	continue_bits = 0x80 // if there is more bytes after current byte
-)
-
-func WriteVarInt(buf *bytes.Buffer, value int32) {
+func WriteVarInt(buf *bytes.Buffer, value int32) error {
 	assert.Assert(value >= 0, "value should the greater than 0")
 	for {
 		if (value & ^segment_bits) == 0 {
-			buf.WriteByte(byte(value))
-			return
+			return WriteByte(buf, byte(value))
 		}
-		buf.WriteByte(byte((value & segment_bits) | continue_bits))
+		err := WriteByte(buf, byte((value&segment_bits)|continue_bits))
+		if err != nil {
+			return err
+		}
 		value >>= 7
 	}
 }
@@ -44,19 +46,16 @@ func WriteVarInt(buf *bytes.Buffer, value int32) {
 func ReadVarInt(buf *bytes.Buffer) (int32, error) {
 	val := int32(0)
 	pos := int32(0)
-
 	for {
-		currentByte, err := buf.ReadByte()
+		currentByte, err := ReadByte(buf)
 		if err != nil {
 			return 0, err
 		}
 		val |= int32(currentByte&segment_bits) << pos
-
 		// if there is no byte after the current
 		if currentByte&continue_bits == 0 {
 			break
 		}
-
 		pos += 7
 		if pos >= 32 {
 			return 0, ErrTooBig
@@ -65,9 +64,13 @@ func ReadVarInt(buf *bytes.Buffer) (int32, error) {
 	return val, nil
 }
 
-func WriteString(buf *bytes.Buffer, str string) {
-	WriteVarInt(buf, int32(len(str)))
-	buf.WriteString(str)
+func WriteString(buf *bytes.Buffer, str string) error {
+	err := WriteVarInt(buf, int32(len(str)))
+	if err != nil {
+		return err
+	}
+	_, err = buf.WriteString(str)
+	return err
 }
 
 func ReadString(buf *bytes.Buffer) (string, error) {
@@ -94,8 +97,42 @@ func ReadUShort(buf *bytes.Buffer) (uint16, error) {
 	return binary.BigEndian.Uint16(b), nil
 }
 
-func WriteUShort(buf *bytes.Buffer, value uint16) {
+func WriteUShort(buf *bytes.Buffer, value uint16) error {
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, value)
-	buf.Write(b)
+	_, err := buf.Write(b)
+	return err
+}
+
+func ReadVarLong(buf *bytes.Buffer) (int64, error) {
+	val := int64(0)
+	pos := uint8(0)
+	for {
+		currentByte, err := ReadByte(buf)
+		if err != nil {
+			return 0, err
+		}
+		val |= int64(currentByte&segment_bits) << pos
+		if currentByte&continue_bits == 0 {
+			break
+		}
+		pos += 7
+		if pos >= 64 {
+			return 0, ErrTooBig
+		}
+	}
+	return val, nil
+}
+
+func WriteVarLong(buf *bytes.Buffer, value int64) error {
+	for {
+		if value & ^segment_bits == 0 {
+			return WriteByte(buf, byte(value))
+		}
+		err := WriteByte(buf, byte((value&segment_bits)|continue_bits))
+		if err != nil {
+			return err
+		}
+		value >>= 7
+	}
 }

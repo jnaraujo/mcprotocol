@@ -102,3 +102,22 @@ func TestWriteUShort(t *testing.T) {
 
 	assert.Equal(t, expected, buf.Bytes())
 }
+
+func TestReadVarLong(t *testing.T) {
+	buf := new(bytes.Buffer)
+	buf.Write([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f})
+
+	actual, err := ReadVarLong(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(9223372036854775807), actual)
+}
+
+func TestWriteVarLong(t *testing.T) {
+	buf := new(bytes.Buffer)
+
+	WriteVarLong(buf, 0)
+	WriteVarLong(buf, 9223372036854775807)
+
+	assert.Equal(t, []byte{0x00}, buf.Bytes()[0:1])
+	assert.Equal(t, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f}, buf.Bytes()[1:10])
+}

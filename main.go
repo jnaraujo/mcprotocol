@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"log/slog"
 	"net"
 
-	"github.com/jnaraujo/mcprotocol/packet"
 	"github.com/jnaraujo/mcprotocol/protocol"
 )
 
@@ -24,49 +21,70 @@ func main() {
 			fmt.Println(err)
 			continue
 		}
-		defer conn.Close()
+		go handleConnection(conn)
+	}
+}
 
-		fmt.Printf("New connection from %s\n", conn.RemoteAddr())
+func handleConnection(conn net.Conn) {
+	slog.Info("New connection", "addr", conn.RemoteAddr().String())
+	defer conn.Close()
 
-		buf := make([]byte, 1024*1024)
+	buf := make([]byte, 1024*1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		slog.Error("Error reading from connection", "err", err.Error())
+		return
+	}
+	handshakePkt, err := protocol.ReceiveHandshakePacket(buf[:n])
+	if err != nil {
+		slog.Error("Error reading handshake", "err", err.Error())
+		return
+	}
+
+	// show motd
+	if handshakePkt.NextState == protocol.HandshakeNextStateStatus {
+		srp, err := protocol.StatusResponsePacket()
+		if err != nil {
+			slog.Error("Error creating status response packet", "err", err.Error())
+			return
+		}
+
+		srpBytes, err := srp.MarshalBinary()
+		if err != nil {
+			slog.Error("Error marshalling status response packet", "err", err.Error())
+			return
+		}
+		conn.Write(srpBytes)
+
+		// PING REQUEST
+		conn.Read(buf) // drop
 
 		n, err := conn.Read(buf)
 		if err != nil {
-			if err != io.EOF {
-				log.Println("Error reading from connection:", err)
-				continue
-			}
-			fmt.Println("eof")
-			break
+			slog.Error("Error reading from connection", "err", err.Error())
+			return
 		}
 
-		fmt.Println(n)
-		fmt.Println(buf[:n])
-
-		var packet packet.Packet
-		err = packet.UnmarshalBinary(buf[:n])
+		prp, err := protocol.ReceivePingRequestPacket(buf[:n])
 		if err != nil {
-			slog.Error("Error unmarshalling packet", "err", err.Error())
-			continue
+			slog.Error("Error receiving ping request packet", "err", err.Error())
+			return
 		}
 
-		protocolVersion, _ := packet.Data().ReadVarInt()
-		serverAddr, _ := packet.Data().ReadString()
-		serverPort, _ := packet.Data().ReadUShort()
-		nextState, _ := packet.Data().ReadVarInt()
+		fmt.Println(prp.Payload)
 
-		fmt.Println("data", packet.Id(), protocolVersion, serverAddr, serverPort, nextState)
-
-		switch nextState {
-		case 1:
-			protocol.SendStatusResponse(conn)
-			fmt.Println("status")
-		case 2:
-			fmt.Println("login")
-		case 3:
-			fmt.Println("transfer")
-		default:
-			fmt.Println("not implemented")
+		prPkt, err := protocol.PingResponsePacket(prp.Payload)
+		if err != nil {
+			slog.Error("Error creating ping response packet", "err", err.Error())
+			return
 		}
+
+		prBytes, err := prPkt.MarshalBinary()
+		if err != nil {
+			slog.Error("Error marshalling ping response packet", "err", err.Error())
+			return
+		}
+
+		conn.Write(prBytes)
 	}
 }

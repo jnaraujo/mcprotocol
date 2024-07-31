@@ -7,7 +7,7 @@ import (
 	"github.com/jnaraujo/mcprotocol/raknet"
 )
 
-func StatusResponsePacket() (*packet.Packet, error) {
+func CreateStatusResponsePacket() (*packet.Packet, error) {
 	response := map[string]any{
 		"version": map[string]any{
 			"name":     "1.21",

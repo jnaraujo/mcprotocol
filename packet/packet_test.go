@@ -39,5 +39,5 @@ func TestPacketUnmarshalBinary(t *testing.T) {
 	err = p2.UnmarshalBinary(b)
 	assert.Nil(t, err)
 	assert.Equal(t, PacketID(12), p2.ID())
-	assert.Equal(t, []byte{4, 176}, p2.data.Bytes())
+	assert.Equal(t, []byte{4, 176}, p2.Bytes())
 }

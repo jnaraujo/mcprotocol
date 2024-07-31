@@ -9,14 +9,8 @@ type PingRequestPacket struct {
 	Payload int64
 }
 
-func ReceivePingRequestPacket(data []byte) (*PingRequestPacket, error) {
-	var pkt packet.Packet
-	err := pkt.UnmarshalBinary(data)
-	if err != nil {
-		return nil, err
-	}
-
-	payload, err := pkt.Data().ReadLong()
+func ReceivePingRequestPacket(pkt *packet.Packet) (*PingRequestPacket, error) {
+	payload, err := pkt.Buffer().ReadLong()
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +20,7 @@ func ReceivePingRequestPacket(data []byte) (*PingRequestPacket, error) {
 	}, nil
 }
 
-func PingResponsePacket(payload int64) (*packet.Packet, error) {
+func CreatePingResponsePacket(payload int64) (*packet.Packet, error) {
 	buf := raknet.NewBuffer()
 	err := buf.WriteLong(payload)
 	if err != nil {

@@ -5,14 +5,14 @@ import (
 )
 
 type Packet struct {
-	id   PacketID
-	data *raknet.Buffer
+	id     PacketID
+	buffer *raknet.Buffer
 }
 
-func NewPacket(data *raknet.Buffer, id PacketID) *Packet {
+func NewPacket(buffer *raknet.Buffer, id PacketID) *Packet {
 	return &Packet{
-		data: data,
-		id:   id,
+		buffer: buffer,
+		id:     id,
 	}
 }
 
@@ -60,15 +60,15 @@ func (p *Packet) UnmarshalBinary(data []byte) error {
 	}
 
 	p.id = PacketID(packetID)
-	p.data = buf
+	p.buffer = buf
 
 	return nil
 }
 
 func (p *Packet) Bytes() []byte {
-	return p.data.Bytes()
+	return p.buffer.Bytes()
 }
 
-func (p *Packet) Data() *raknet.Buffer {
-	return p.data
+func (p *Packet) Buffer() *raknet.Buffer {
+	return p.buffer
 }

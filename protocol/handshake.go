@@ -18,17 +18,23 @@ type HandshakePacket struct {
 	Port            uint16
 }
 
-func ReceiveHandshakePacket(data []byte) (*HandshakePacket, error) {
-	var pkt packet.Packet
-	err := pkt.UnmarshalBinary(data)
+func ReceiveHandshakePacket(pkt *packet.Packet) (*HandshakePacket, error) {
+	protocolVersion, err := pkt.Buffer().ReadVarInt()
 	if err != nil {
 		return nil, err
 	}
-
-	protocolVersion, _ := pkt.Data().ReadVarInt()
-	addr, _ := pkt.Data().ReadString()
-	port, _ := pkt.Data().ReadUShort()
-	nextState, _ := pkt.Data().ReadVarInt()
+	addr, err := pkt.Buffer().ReadString()
+	if err != nil {
+		return nil, err
+	}
+	port, err := pkt.Buffer().ReadUShort()
+	if err != nil {
+		return nil, err
+	}
+	nextState, err := pkt.Buffer().ReadVarInt()
+	if err != nil {
+		return nil, err
+	}
 
 	return &HandshakePacket{
 		ProtocolVersion: protocolVersion,

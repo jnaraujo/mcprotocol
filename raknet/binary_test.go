@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/jnaraujo/mcprotocol/api/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -141,4 +142,32 @@ func TestWriteLong(t *testing.T) {
 	buf.WriteLong(9223372036854775807)
 
 	assert.Equal(t, expected, buf.data.Bytes())
+}
+
+func TestWriteUUID(t *testing.T) {
+	expected := []byte{137, 206, 23, 145, 218, 176, 75, 42, 151, 217, 238, 114, 160, 205, 193, 253}
+	buf := NewBuffer()
+	actual, err := uuid.UUIDFromString("89ce1791-dab0-4b2a-97d9-ee72a0cdc1fd")
+	assert.Nil(t, err)
+
+	err = buf.WriteUUID(actual)
+	assert.Nil(t, err)
+
+	assert.Equal(t, expected, buf.Bytes())
+}
+
+func TestReadUUID(t *testing.T) {
+	expected := "89ce1791-dab0-4b2a-97d9-ee72a0cdc1fd"
+	buf := NewBuffer()
+
+	uuid, err := uuid.UUIDFromString("89ce1791-dab0-4b2a-97d9-ee72a0cdc1fd")
+	assert.Nil(t, err)
+
+	err = buf.WriteUUID(uuid)
+	assert.Nil(t, err)
+
+	actualUUID, err := buf.ReadUUID()
+	assert.Nil(t, err)
+
+	assert.Equal(t, expected, actualUUID.String())
 }

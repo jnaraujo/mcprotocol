@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 
+	"github.com/jnaraujo/mcprotocol/api/uuid"
 	"github.com/jnaraujo/mcprotocol/assert"
 )
 
@@ -167,6 +168,20 @@ func (buf *Buffer) WriteVarLong(value int64) error {
 		}
 		value >>= 7
 	}
+}
+
+func (buf *Buffer) ReadUUID() (uuid.UUID, error) {
+	b := make([]byte, 16)
+	_, err := buf.data.Read(b)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	return uuid.UUIDFromBytes(b)
+}
+
+func (buf *Buffer) WriteUUID(uuid uuid.UUID) error {
+	_, err := buf.data.Write(uuid[:])
+	return err
 }
 
 func (buf *Buffer) WriteBytes(p []byte) (n int, err error) {

@@ -9,7 +9,14 @@ type Packet struct {
 	buffer *raknet.Buffer
 }
 
-func NewPacket(buffer *raknet.Buffer, id PacketID) *Packet {
+func NewPacket(id PacketID) *Packet {
+	return &Packet{
+		buffer: raknet.NewBuffer(),
+		id:     id,
+	}
+}
+
+func NewPacketFromBuffer(buffer *raknet.Buffer, id PacketID) *Packet {
 	return &Packet{
 		buffer: buffer,
 		id:     id,

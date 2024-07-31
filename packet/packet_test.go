@@ -9,14 +9,14 @@ import (
 )
 
 func TestPacket(t *testing.T) {
-	p := NewPacket(nil, 2)
+	p := NewPacket(2)
 	assert.Equal(t, PacketID(2), p.ID())
 }
 
 func TestPacketMarshalBinary(t *testing.T) {
-	buf := raknet.NewBuffer()
-	buf.WriteUShort(1200)
-	p := NewPacket(buf, 5)
+	p := NewPacket(5)
+	p.Buffer().WriteUShort(1200)
+
 	b, err := p.MarshalBinary()
 
 	fmt.Println(b)
@@ -31,7 +31,7 @@ func TestPacketUnmarshalBinary(t *testing.T) {
 	buf := raknet.NewBuffer()
 	buf.WriteUShort(1200)
 
-	p := NewPacket(buf, 12)
+	p := NewPacketFromBuffer(buf, 12)
 	b, err := p.MarshalBinary()
 	assert.Nil(t, err)
 

@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"github.com/jnaraujo/mcprotocol/packet"
-	"github.com/jnaraujo/mcprotocol/raknet"
 )
 
 type PingRequestPacket struct {
@@ -21,10 +20,12 @@ func ReceivePingRequestPacket(pkt *packet.Packet) (*PingRequestPacket, error) {
 }
 
 func CreatePingResponsePacket(payload int64) (*packet.Packet, error) {
-	buf := raknet.NewBuffer()
-	err := buf.WriteLong(payload)
+	pkt := packet.NewPacket(packet.IDPing)
+
+	err := pkt.Buffer().WriteLong(payload)
 	if err != nil {
 		return nil, err
 	}
-	return packet.NewPacket(buf, packet.IDPing), nil
+
+	return pkt, nil
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/jnaraujo/mcprotocol/packet"
-	"github.com/jnaraujo/mcprotocol/raknet"
 )
 
 type StatusResponseVersion struct {
@@ -37,9 +36,8 @@ func CreateStatusResponsePacket(response StatusResponse) (*packet.Packet, error)
 		return nil, err
 	}
 
-	buf := raknet.NewBuffer()
-	buf.WriteString(string(respBytes))
+	p := packet.NewPacket(packet.IDServerIdentification)
+	p.Buffer().WriteString(string(respBytes))
 
-	p := packet.NewPacket(buf, packet.IDServerIdentification)
 	return p, nil
 }

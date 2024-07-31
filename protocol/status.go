@@ -18,7 +18,7 @@ func CreateStatusResponsePacket() (*packet.Packet, error) {
 			"online": 99999,
 		},
 		"description": map[string]string{
-			"text": "Hello world",
+			"text": "Hello, World!",
 		},
 	}
 	respBytes, err := json.Marshal(response)

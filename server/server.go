@@ -47,7 +47,6 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 
 	buf := make([]byte, packet.MaxPacketSizeInBytes)
 	state := fsm.NewFSM()
-
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -64,65 +63,73 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 
 		switch state.State() {
 		case fsm.FSMStateHandshake:
-			handshakePkt, err := protocol.ReceiveHandshakePacket(pkt)
-			if err != nil {
-				slog.Error("Error reading handshake", "err", err.Error())
-				return
-			}
-
-			switch handshakePkt.NextState {
-			case protocol.HandshakeNextStateStatus:
-				state.SetState(fsm.FSMStateStatus)
-				// show motd
-				statusRespPkt, err := protocol.CreateStatusResponsePacket()
-				if err != nil {
-					slog.Error("Error creating status response packet", "err", err.Error())
-					return
-				}
-				statusRespBytes, err := statusRespPkt.MarshalBinary()
-				if err != nil {
-					slog.Error("Error marshalling status response packet", "err", err.Error())
-					return
-				}
-				_, err = conn.Write(statusRespBytes)
-				if err != nil {
-					slog.Error("Error writing status response bytes")
-					return
-				}
-			case protocol.HandshakeNextStateLogin:
-				state.SetState(fsm.FSMStateLogin)
-			default:
-				slog.Error("next state not implemented", "nextState", handshakePkt.NextState)
-			}
+			s.handleHandshakeState(conn, pkt, state)
 		case fsm.FSMStateStatus:
-			if pkt.Buffer().Len() == 0 {
-				continue
-			}
-
-			pingReqPkt, err := protocol.ReceivePingRequestPacket(pkt)
-			if err != nil {
-				slog.Error("Error receiving ping request packet", "err", err.Error())
-				return
-			}
-
-			pingRespPkt, err := protocol.CreatePingResponsePacket(pingReqPkt.Payload)
-			if err != nil {
-				slog.Error("Error creating ping response packet", "err", err.Error())
-				return
-			}
-
-			pingRespBytes, err := pingRespPkt.MarshalBinary()
-			if err != nil {
-				slog.Error("Error marshalling ping response packet", "err", err.Error())
-				return
-			}
-			_, err = conn.Write(pingRespBytes)
-			if err != nil {
-				slog.Error("Error writing ping response bytes")
-				return
-			}
+			s.handleStatusState(conn, pkt)
 		default:
 			slog.Error("State not implemented", "state", state.State())
 		}
+	}
+}
+
+func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, state *fsm.FSM) {
+	handshakePkt, err := protocol.ReceiveHandshakePacket(pkt)
+	if err != nil {
+		slog.Error("Error reading handshake", "err", err.Error())
+		return
+	}
+
+	switch handshakePkt.NextState {
+	case protocol.HandshakeNextStateStatus:
+		state.SetState(fsm.FSMStateStatus)
+		// show motd
+		statusRespPkt, err := protocol.CreateStatusResponsePacket()
+		if err != nil {
+			slog.Error("Error creating status response packet", "err", err.Error())
+			return
+		}
+		statusRespBytes, err := statusRespPkt.MarshalBinary()
+		if err != nil {
+			slog.Error("Error marshalling status response packet", "err", err.Error())
+			return
+		}
+		_, err = conn.Write(statusRespBytes)
+		if err != nil {
+			slog.Error("Error writing status response bytes")
+			return
+		}
+	case protocol.HandshakeNextStateLogin:
+		state.SetState(fsm.FSMStateLogin)
+	default:
+		slog.Error("next state not implemented", "nextState", handshakePkt.NextState)
+	}
+}
+
+func (s *Server) handleStatusState(conn *net.TCPConn, pkt *packet.Packet) {
+	if pkt.Buffer().Len() == 0 {
+		return
+	}
+
+	pingReqPkt, err := protocol.ReceivePingRequestPacket(pkt)
+	if err != nil {
+		slog.Error("Error receiving ping request packet", "err", err.Error())
+		return
+	}
+
+	pingRespPkt, err := protocol.CreatePingResponsePacket(pingReqPkt.Payload)
+	if err != nil {
+		slog.Error("Error creating ping response packet", "err", err.Error())
+		return
+	}
+
+	pingRespBytes, err := pingRespPkt.MarshalBinary()
+	if err != nil {
+		slog.Error("Error marshalling ping response packet", "err", err.Error())
+		return
+	}
+	_, err = conn.Write(pingRespBytes)
+	if err != nil {
+		slog.Error("Error writing ping response bytes")
+		return
 	}
 }

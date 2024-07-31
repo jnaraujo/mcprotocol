@@ -10,12 +10,26 @@ import (
 )
 
 type Server struct {
-	addr string
+	addr           string
+	statusResponse protocol.StatusResponse
 }
 
 func NewServer(addr string) *Server {
 	return &Server{
 		addr: addr,
+		statusResponse: protocol.StatusResponse{
+			Version: protocol.StatusResponseVersion{
+				Name:     "1.21",
+				Protocol: 767,
+			},
+			Description: protocol.StatusResponseDescription{
+				Text: "Hello, world!",
+			},
+			Players: protocol.StatusResponsePlayers{
+				Online: 0,
+				Max:    20,
+			},
+		},
 	}
 }
 
@@ -83,7 +97,7 @@ func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, sta
 	case protocol.HandshakeNextStateStatus:
 		state.SetState(fsm.FSMStateStatus)
 		// show motd
-		statusRespPkt, err := protocol.CreateStatusResponsePacket()
+		statusRespPkt, err := protocol.CreateStatusResponsePacket(s.statusResponse)
 		if err != nil {
 			slog.Error("Error creating status response packet", "err", err.Error())
 			return

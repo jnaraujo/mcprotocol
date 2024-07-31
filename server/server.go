@@ -95,9 +95,10 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 				slog.Error("next state not implemented", "nextState", handshakePkt.NextState)
 			}
 		case fsm.FSMStateStatus:
-			if pkt.Bytes() == nil {
+			if pkt.Buffer().Len() == 0 {
 				continue
 			}
+
 			pingReqPkt, err := protocol.ReceivePingRequestPacket(pkt)
 			if err != nil {
 				slog.Error("Error receiving ping request packet", "err", err.Error())

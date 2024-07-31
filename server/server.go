@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"log/slog"
 	"net"
 
@@ -57,13 +58,14 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 	slog.Info("New connection", "addr", conn.RemoteAddr().String())
 	defer conn.Close()
 
-	defer conn.Close()
-
 	buf := make([]byte, packet.MaxPacketSizeInBytes)
 	state := fsm.NewFSM()
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
+			if err == io.EOF {
+				return
+			}
 			slog.Error("Error reading from connection", "err", err.Error())
 			return
 		}

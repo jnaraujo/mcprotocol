@@ -10,7 +10,6 @@ import (
 
 type LoginStartPacket struct {
 	Name string
-	UUID uuid.UUID
 }
 
 func ReceiveLoginStartPacket(pkt *packet.Packet) (*LoginStartPacket, error) {
@@ -18,15 +17,8 @@ func ReceiveLoginStartPacket(pkt *packet.Packet) (*LoginStartPacket, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	uuid, err := pkt.Buffer().ReadUUID()
-	if err != nil {
-		return nil, err
-	}
-
 	return &LoginStartPacket{
 		Name: name,
-		UUID: uuid,
 	}, nil
 }
 
@@ -99,7 +91,7 @@ func CreateEncryptionRequestPacket(crypto *auth.Crypto) (*packet.Packet, error) 
 func CreateLoginSuccessPacket(playerUUID uuid.UUID, playerUsername string) (*packet.Packet, error) {
 	pkt := packet.NewPacket(0x02)
 
-	err := pkt.Buffer().WriteUUID(playerUUID)
+	err := pkt.Buffer().WriteString(playerUUID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -108,11 +100,45 @@ func CreateLoginSuccessPacket(playerUUID uuid.UUID, playerUsername string) (*pac
 	if err != nil {
 		return nil, err
 	}
-	err = pkt.Buffer().WriteVarInt(0)
+
+	return pkt, nil
+}
+
+func CreateJoinGamePacket() (*packet.Packet, error) {
+	pkt := packet.NewPacket(0x01)
+
+	// entity id
+	err := pkt.Buffer().WriteInt(0)
 	if err != nil {
 		return nil, err
 	}
-	err = pkt.Buffer().WriteBool(false)
+
+	// game mode
+	// 0: survival, 1: creative, 2: adventure. Bit 3 (0x8) is the hardcore flag
+	err = pkt.Buffer().WriteByte(1)
+	if err != nil {
+		return nil, err
+	}
+	// Dimension
+	// -1: nether, 0: overworld, 1: end
+	err = pkt.Buffer().WriteByte(0)
+	if err != nil {
+		return nil, err
+	}
+	// Difficulty
+	// 0 thru 3 for Peaceful, Easy, Normal, Hard
+	err = pkt.Buffer().WriteByte(1)
+	if err != nil {
+		return nil, err
+	}
+	// Max Players
+	err = pkt.Buffer().WriteByte(2)
+	if err != nil {
+		return nil, err
+	}
+	// level type
+	// default, flat, largeBiomes, amplified, default_1_1
+	err = pkt.Buffer().WriteString("default")
 	if err != nil {
 		return nil, err
 	}

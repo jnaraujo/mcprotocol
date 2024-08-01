@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/jnaraujo/mcprotocol/api/uuid"
 	"github.com/jnaraujo/mcprotocol/auth"
 	"github.com/jnaraujo/mcprotocol/fsm"
 	"github.com/jnaraujo/mcprotocol/packet"
@@ -29,8 +30,8 @@ func NewServer(addr string) *Server {
 		crypto: crypto,
 		statusResponse: protocol.StatusResponse{
 			Version: protocol.StatusResponseVersion{
-				Name:     "1.21",
-				Protocol: 767,
+				Name:     "1.7.10",
+				Protocol: 5,
 			},
 			Description: protocol.StatusResponseDescription{
 				Text: "Hello, world!",
@@ -86,13 +87,15 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			return
 		}
 
+		slog.Info("New packet!", "id", pkt.ID(), "state", state.State())
+
 		switch state.State() {
 		case fsm.FSMStateHandshake:
 			s.handleHandshakeState(conn, pkt, state)
 		case fsm.FSMStateStatus:
 			s.handleStatusState(conn, pkt)
 		case fsm.FSMStateLogin:
-			s.handleLoginState(conn, pkt)
+			s.handleLoginState(conn, pkt, state)
 		default:
 			slog.Error("State not implemented", "state", state.State())
 		}
@@ -105,6 +108,8 @@ func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, sta
 		slog.Error("Error reading handshake", "err", err.Error())
 		return
 	}
+
+	slog.Info("New HandShake Packet", "nextState", handshakePkt.NextState)
 
 	switch handshakePkt.NextState {
 	case protocol.HandshakeNextStateStatus:
@@ -152,7 +157,9 @@ func (s *Server) handleStatusState(conn *net.TCPConn, pkt *packet.Packet) {
 	}
 }
 
-func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet) {
+func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet, state *fsm.FSM) {
+	slog.Info("New Login Packet", "id", pkt.ID())
+
 	switch pkt.ID() {
 	case 0x00: // login start
 		loginStartPkt, err := protocol.ReceiveLoginStartPacket(pkt)
@@ -161,16 +168,35 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet) {
 			return
 		}
 
-		slog.Info("Hello, Player!", "name", loginStartPkt.Name, "uuid", loginStartPkt.UUID)
+		slog.Info("Hello, Player!", "name", loginStartPkt.Name)
 
 		// TODO: implement encryption!!!
 
-		loginSuccessPkt, err := protocol.CreateLoginSuccessPacket(loginStartPkt.UUID, loginStartPkt.Name)
+		loginSuccessPkt, err := protocol.CreateLoginSuccessPacket(uuid.GenerateUUID(), loginStartPkt.Name)
 		if err != nil {
 			slog.Error("error creating login success packet", "err", err.Error())
 			return
 		}
-		s.sendPacket(conn, loginSuccessPkt)
+		err = s.sendPacket(conn, loginSuccessPkt)
+		if err != nil {
+			slog.Error("Error sending login success bytes")
+			return
+		}
+
+		joinGamePkt, err := protocol.CreateJoinGamePacket()
+		if err != nil {
+			slog.Error("error creating join game packet", "err", err.Error())
+			return
+		}
+
+		err = s.sendPacket(conn, joinGamePkt)
+		if err != nil {
+			slog.Error("Error sending join game bytes")
+			return
+		}
+
+		// change the state to game mode
+		state.SetState(fsm.FSMStatePlay)
 	case 0x01:
 		slog.Error("login encryption response not implemented yet")
 	case 0x03:

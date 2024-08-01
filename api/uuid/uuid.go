@@ -13,3 +13,7 @@ func UUIDFromBytes(b []byte) (UUID, error) {
 func UUIDFromString(s string) (UUID, error) {
 	return uuid.Parse(s)
 }
+
+func GenerateUUID() UUID {
+	return uuid.New()
+}

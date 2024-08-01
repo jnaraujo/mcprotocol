@@ -115,14 +115,10 @@ func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, sta
 			slog.Error("Error creating status response packet", "err", err.Error())
 			return
 		}
-		statusRespBytes, err := statusRespPkt.MarshalBinary()
+
+		err = s.sendPacket(conn, statusRespPkt)
 		if err != nil {
-			slog.Error("Error marshalling status response packet", "err", err.Error())
-			return
-		}
-		_, err = conn.Write(statusRespBytes)
-		if err != nil {
-			slog.Error("Error writing status response bytes")
+			slog.Error("Error sending status response bytes")
 			return
 		}
 	case protocol.HandshakeNextStateLogin:
@@ -149,14 +145,9 @@ func (s *Server) handleStatusState(conn *net.TCPConn, pkt *packet.Packet) {
 		return
 	}
 
-	pingRespBytes, err := pingRespPkt.MarshalBinary()
+	err = s.sendPacket(conn, pingRespPkt)
 	if err != nil {
-		slog.Error("Error marshalling ping response packet", "err", err.Error())
-		return
-	}
-	_, err = conn.Write(pingRespBytes)
-	if err != nil {
-		slog.Error("Error writing ping response bytes")
+		slog.Error("Error sending ping response bytes")
 		return
 	}
 }
@@ -169,6 +160,9 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet) {
 			slog.Error("error receiving login start packet", "err", err.Error())
 			return
 		}
+
+		slog.Info("Hello, Player!", "name", loginStartPkt.Name, "uuid", loginStartPkt.UUID)
+
 		// TODO: implement encryption!!!
 
 		loginSuccessPkt, err := protocol.CreateLoginSuccessPacket(loginStartPkt.UUID, loginStartPkt.Name)
@@ -176,14 +170,7 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet) {
 			slog.Error("error creating login success packet", "err", err.Error())
 			return
 		}
-
-		loginSuccessBytes, err := loginSuccessPkt.MarshalBinary()
-		if err != nil {
-			slog.Error("error marshalling login success packet", "err", err.Error())
-			return
-		}
-
-		conn.Write(loginSuccessBytes)
+		s.sendPacket(conn, loginSuccessPkt)
 	case 0x01:
 		slog.Error("login encryption response not implemented yet")
 	case 0x03:
@@ -192,4 +179,15 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet) {
 		slog.Error("login id not implemented", "id", pkt.ID())
 	}
 
+}
+
+func (s *Server) sendPacket(conn net.Conn, pkt *packet.Packet) error {
+	pktBytes, err := pkt.MarshalBinary()
+	if err != nil {
+		slog.Error("error marshalling packet", "err", err.Error())
+		return err
+	}
+
+	_, err = conn.Write(pktBytes)
+	return err
 }

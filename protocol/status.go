@@ -15,7 +15,7 @@ type StatusResponsePlayers struct {
 	Online int `json:"online"`
 	Sample []struct {
 		Name string `json:"name"`
-		Id   string `json:"id"`
+		ID   string `json:"id"`
 	} `json:"sample"`
 }
 type StatusResponseDescription struct {

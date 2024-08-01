@@ -65,8 +65,12 @@ func (s *Server) Listen() error {
 }
 
 func (s *Server) handleConnection(conn *net.TCPConn) {
+	defer func() {
+		conn.Close()
+		slog.Info("Connection closed")
+	}()
+
 	slog.Info("New connection", "addr", conn.RemoteAddr().String())
-	defer conn.Close()
 
 	buf := make([]byte, packet.MaxPacketSizeInBytes)
 	state := fsm.NewFSM()

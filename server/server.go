@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/jnaraujo/mcprotocol/auth"
 	"github.com/jnaraujo/mcprotocol/fsm"
 	"github.com/jnaraujo/mcprotocol/packet"
 	"github.com/jnaraujo/mcprotocol/protocol"
@@ -13,11 +14,19 @@ import (
 type Server struct {
 	addr           string
 	statusResponse protocol.StatusResponse
+
+	crypto *auth.Crypto
 }
 
 func NewServer(addr string) *Server {
+	crypto, err := auth.NewCrypto()
+	if err != nil {
+		panic(err)
+	}
+
 	return &Server{
-		addr: addr,
+		addr:   addr,
+		crypto: crypto,
 		statusResponse: protocol.StatusResponse{
 			Version: protocol.StatusResponseVersion{
 				Name:     "1.21",
@@ -67,7 +76,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 				return
 			}
 			slog.Error("Error reading from connection", "err", err.Error())
-			return
+			continue
 		}
 
 		pkt := new(packet.Packet)
@@ -82,6 +91,8 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			s.handleHandshakeState(conn, pkt, state)
 		case fsm.FSMStateStatus:
 			s.handleStatusState(conn, pkt)
+		case fsm.FSMStateLogin:
+			s.handleLoginState(conn, pkt)
 		default:
 			slog.Error("State not implemented", "state", state.State())
 		}
@@ -148,4 +159,37 @@ func (s *Server) handleStatusState(conn *net.TCPConn, pkt *packet.Packet) {
 		slog.Error("Error writing ping response bytes")
 		return
 	}
+}
+
+func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet) {
+	switch pkt.ID() {
+	case 0x00: // login start
+		loginStartPkt, err := protocol.ReceiveLoginStartPacket(pkt)
+		if err != nil {
+			slog.Error("error receiving login start packet", "err", err.Error())
+			return
+		}
+		// TODO: implement encryption!!!
+
+		loginSuccessPkt, err := protocol.CreateLoginSuccessPacket(loginStartPkt.UUID, loginStartPkt.Name)
+		if err != nil {
+			slog.Error("error creating login success packet", "err", err.Error())
+			return
+		}
+
+		loginSuccessBytes, err := loginSuccessPkt.MarshalBinary()
+		if err != nil {
+			slog.Error("error marshalling login success packet", "err", err.Error())
+			return
+		}
+
+		conn.Write(loginSuccessBytes)
+	case 0x01:
+		slog.Error("login encryption response not implemented yet")
+	case 0x03:
+		slog.Info("Login success!")
+	default:
+		slog.Error("login id not implemented", "id", pkt.ID())
+	}
+
 }

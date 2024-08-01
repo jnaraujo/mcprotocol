@@ -191,3 +191,19 @@ func TestReadUUID(t *testing.T) {
 
 	assert.Equal(t, expected, actualUUID.String())
 }
+
+func TestWriteInt(t *testing.T) {
+	buf := NewBuffer()
+	buf.WriteInt(25)
+
+	assert.Equal(t, []byte{0, 0, 0, 25}, buf.Bytes())
+}
+
+func TestReadInt(t *testing.T) {
+	buf := NewBuffer()
+	buf.WriteInt(123456)
+
+	value, err := buf.ReadInt()
+	assert.Nil(t, err)
+	assert.Equal(t, int32(123456), value)
+}

@@ -216,9 +216,19 @@ func (buf *Buffer) WriteBytes(p []byte) (n int, err error) {
 
 // Signed 32-bit integer, two's complement
 func (buf *Buffer) WriteInt(value int32) error {
-	v := twoComplement(value)
-	_, err := buf.data.Write(v)
+	va := make([]byte, 4)
+	binary.BigEndian.PutUint32(va, uint32(value))
+	_, err := buf.data.Write(va)
 	return err
+}
+
+func (buf *Buffer) ReadInt() (int32, error) {
+	b := make([]byte, 4)
+	_, err := buf.data.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	return int32(binary.BigEndian.Uint32(b)), nil
 }
 
 func (buf *Buffer) Len() int {
@@ -227,11 +237,4 @@ func (buf *Buffer) Len() int {
 
 func (buf *Buffer) Bytes() []byte {
 	return buf.data.Bytes()
-}
-
-func twoComplement(val int32) []byte {
-	v := -val
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(v))
-	return b
 }

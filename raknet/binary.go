@@ -46,6 +46,15 @@ func (buf *Buffer) ReadByte() (byte, error) {
 	return currentByte, nil
 }
 
+func (buf *Buffer) ReadBytes(n int) ([]byte, error) {
+	readBuf := make([]byte, n)
+	_, err := buf.data.Read(readBuf)
+	if err != nil {
+		return []byte{}, err
+	}
+	return readBuf, nil
+}
+
 func (buf *Buffer) WriteVarInt(value int32) error {
 	assert.Assert(value >= 0, "value should the greater than 0")
 	for {
@@ -177,6 +186,21 @@ func (buf *Buffer) ReadUUID() (uuid.UUID, error) {
 		return uuid.UUID{}, err
 	}
 	return uuid.UUIDFromBytes(b)
+}
+
+func (buf *Buffer) WriteBool(v bool) error {
+	if v {
+		return buf.WriteByte(0x01)
+	}
+	return buf.WriteByte(0x00)
+}
+
+func (buf *Buffer) ReadBool() (bool, error) {
+	b, err := buf.ReadByte()
+	if err != nil {
+		return false, err
+	}
+	return b == 0x01, nil
 }
 
 func (buf *Buffer) WriteUUID(uuid uuid.UUID) error {

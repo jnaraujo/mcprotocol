@@ -61,6 +61,16 @@ func TestWriteVarInt(t *testing.T) {
 	assert.Equal(t, []byte{0xff, 0xff, 0xff, 0xff, 0x07}, buf.data.Bytes()[3:8])
 }
 
+func TestNegativeVarInt(t *testing.T) {
+	buf := NewBuffer()
+	err := buf.WriteVarInt(-6)
+	assert.Nil(t, err)
+
+	actual, err := buf.ReadVarInt()
+	assert.Nil(t, err)
+	assert.Equal(t, int32(-6), actual)
+}
+
 func TestWriteString(t *testing.T) {
 	expected := "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer a elit ex."
 	buf := NewBuffer()
@@ -120,6 +130,16 @@ func TestWriteVarLong(t *testing.T) {
 
 	assert.Equal(t, []byte{0x00}, buf.data.Bytes()[0:1])
 	assert.Equal(t, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f}, buf.data.Bytes()[1:10])
+}
+
+func TestNegativeVarLong(t *testing.T) {
+	buf := NewBuffer()
+	err := buf.WriteVarLong(-63412337812637)
+	assert.Nil(t, err)
+
+	actual, err := buf.ReadVarLong()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(-63412337812637), actual)
 }
 
 func TestReadLong(t *testing.T) {

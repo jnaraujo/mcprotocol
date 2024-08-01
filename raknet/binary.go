@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/jnaraujo/mcprotocol/api/uuid"
-	"github.com/jnaraujo/mcprotocol/assert"
 )
 
 const (
@@ -56,16 +55,17 @@ func (buf *Buffer) ReadBytes(n int) ([]byte, error) {
 }
 
 func (buf *Buffer) WriteVarInt(value int32) error {
-	assert.Assert(value >= 0, "value should the greater than 0")
+	uValue := uint32(value)
+
 	for {
-		if (value & ^segmentBits) == 0 {
-			return buf.WriteByte(byte(value))
+		if (uValue & ^uint32(segmentBits)) == 0 {
+			return buf.WriteByte(byte(uValue))
 		}
-		err := buf.WriteByte(byte((value & segmentBits) | continueBits))
+		err := buf.WriteByte(byte((uValue & segmentBits) | continueBits))
 		if err != nil {
 			return err
 		}
-		value >>= 7
+		uValue >>= 7
 	}
 }
 
@@ -167,15 +167,17 @@ func (buf *Buffer) ReadVarLong() (int64, error) {
 }
 
 func (buf *Buffer) WriteVarLong(value int64) error {
+	uValue := uint64(value)
+
 	for {
-		if value & ^segmentBits == 0 {
-			return buf.WriteByte(byte(value))
+		if uValue & ^uint64(segmentBits) == 0 {
+			return buf.WriteByte(byte(uValue))
 		}
-		err := buf.WriteByte(byte((value & segmentBits) | continueBits))
+		err := buf.WriteByte(byte((uValue & segmentBits) | continueBits))
 		if err != nil {
 			return err
 		}
-		value >>= 7
+		uValue >>= 7
 	}
 }
 
@@ -214,9 +216,8 @@ func (buf *Buffer) WriteBytes(p []byte) (n int, err error) {
 
 // Signed 32-bit integer, two's complement
 func (buf *Buffer) WriteInt(value int32) error {
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(value))
-	_, err := buf.data.Write(twosComplement(b))
+	v := twoComplement(value)
+	_, err := buf.data.Write(v)
 	return err
 }
 
@@ -228,14 +229,9 @@ func (buf *Buffer) Bytes() []byte {
 	return buf.data.Bytes()
 }
 
-func twosComplement(p []byte) []byte {
-	carry := true
-	for i := len(p) - 1; i >= 0; i-- {
-		p[i] = byte(^p[i])
-		if carry {
-			carry = p[i] == 0xff
-			p[i]++
-		}
-	}
-	return p
+func twoComplement(val int32) []byte {
+	v := -val
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(v))
+	return b
 }

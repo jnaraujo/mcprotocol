@@ -195,7 +195,7 @@ func (s *Server) handleStatusState(plr *player.Player, pkt *packet.Packet) {
 
 	err = plr.SendPacket(pingRespPkt)
 	if err != nil {
-		slog.Error("Error sending ping response bytes")
+		slog.Error("error sending ping response packet", "err", err.Error())
 		return
 	}
 }
@@ -224,10 +224,9 @@ func (s *Server) handleLoginState(plr *player.Player, pkt *packet.Packet) {
 			slog.Error("error creating login success packet", "err", err.Error())
 			return
 		}
-
 		err = plr.SendPacket(loginSuccessPkt)
 		if err != nil {
-			slog.Error("Error sending login success bytes")
+			slog.Error("error sending login success packet", "err", err.Error())
 			return
 		}
 
@@ -236,10 +235,9 @@ func (s *Server) handleLoginState(plr *player.Player, pkt *packet.Packet) {
 			slog.Error("error creating join game packet", "err", err.Error())
 			return
 		}
-
 		err = plr.SendPacket(joinGamePkt)
 		if err != nil {
-			slog.Error("Error sending join game bytes")
+			slog.Error("Error sending join game packet")
 			return
 		}
 
@@ -293,7 +291,7 @@ func (s *Server) handlePlayState(plr *player.Player, pkt *packet.Packet) {
 
 			err = plr.SendPacket(pluginMessagePkt)
 			if err != nil {
-				slog.Error("Error sending plugin message bytes")
+				slog.Error("error sending plugin message packet", "err", err.Error())
 				return
 			}
 		}

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"math/rand"
 	"net"
 	"syscall"
 	"time"
@@ -62,6 +63,27 @@ func (s *Server) Listen() error {
 		return err
 	}
 
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
+			rndId := rand.Int31n(math.MaxInt32)
+
+			slog.Info("Sending KeepAlive packets", "id", rndId)
+
+			pkt := packet.NewPacket(packet.IDServerKeepAlive)
+			pkt.Buffer().WriteInt(rndId)
+			for addr, plr := range s.players {
+				if !plr.IsLoggedIn {
+					continue
+				}
+				err := plr.SendPacket(pkt)
+				if err != nil {
+					slog.Error("error sending keep alive packet", "addr", addr, "err", err.Error())
+				}
+			}
+		}
+	}()
+
 	for {
 		conn, err := listener.AcceptTCP()
 		if err != nil {
@@ -107,8 +129,6 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			return
 		}
 
-		slog.Info("New packet!", "id", pkt.ID(), "size", n, "state", plr.State.State())
-
 		switch plr.State.State() {
 		case fsm.FSMStateHandshake:
 			s.handleHandshakeState(plr, pkt)
@@ -119,7 +139,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 		case fsm.FSMStatePlay:
 			s.handlePlayState(plr, pkt)
 		default:
-			slog.Error("State not implemented", "state", plr.State.State())
+			slog.Error("State not implemented", "id", pkt.ID(), "size", n, "state", plr.State.State())
 		}
 	}
 }
@@ -234,7 +254,11 @@ func (s *Server) handleLoginState(plr *player.Player, pkt *packet.Packet) {
 func (s *Server) handlePlayState(plr *player.Player, pkt *packet.Packet) {
 	switch pkt.ID() {
 	case packet.IDClientKeepAlive:
-		slog.Info("Client sent KeepAlive packet!")
+		rndId, _ := pkt.Buffer().ReadInt()
+		slog.Info("Client sent KeepAlive packet!", "id", rndId)
+	case packet.IDClientPlayer:
+		// This packet is used to indicate whether the player is on ground (walking/swimming), or airborne (jumping/falling).
+		plr.Position.OnGround, _ = pkt.Buffer().ReadBool()
 	case packet.IDClientClientSettings: // Sent when the player connects, or when settings are changed.
 		clientSettings, err := protocol.ReceiveClientSettings(pkt)
 		if err != nil {

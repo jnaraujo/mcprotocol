@@ -130,6 +130,22 @@ func (buf *Buffer) WriteUShort(value uint16) error {
 	return err
 }
 
+func (buf *Buffer) ReadShort() (int16, error) {
+	b := make([]byte, 2)
+	_, err := buf.data.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	return int16(binary.BigEndian.Uint16(b)), nil
+}
+
+func (buf *Buffer) WriteShort(value int16) error {
+	b := make([]byte, 2)
+	binary.BigEndian.PutUint16(b, uint16(value))
+	_, err := buf.data.Write(b)
+	return err
+}
+
 func (buf *Buffer) WriteLong(value int64) error {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(value))

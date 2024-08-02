@@ -4,13 +4,16 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"syscall"
+	"time"
 
 	"github.com/jnaraujo/mcprotocol/api/uuid"
 	"github.com/jnaraujo/mcprotocol/auth"
 	"github.com/jnaraujo/mcprotocol/fsm"
 	"github.com/jnaraujo/mcprotocol/packet"
+	"github.com/jnaraujo/mcprotocol/player"
 	"github.com/jnaraujo/mcprotocol/protocol"
 )
 
@@ -18,7 +21,8 @@ type Server struct {
 	addr           string
 	statusResponse protocol.StatusResponse
 
-	crypto *auth.Crypto
+	crypto  *auth.Crypto
+	players map[string]*player.Player
 }
 
 func NewServer(addr string) *Server {
@@ -28,8 +32,9 @@ func NewServer(addr string) *Server {
 	}
 
 	return &Server{
-		addr:   addr,
-		crypto: crypto,
+		addr:    addr,
+		crypto:  crypto,
+		players: make(map[string]*player.Player),
 		statusResponse: protocol.StatusResponse{
 			Version: protocol.StatusResponseVersion{
 				Name:     "1.7.10",
@@ -67,15 +72,20 @@ func (s *Server) Listen() error {
 }
 
 func (s *Server) handleConnection(conn *net.TCPConn) {
-	defer func() {
-		conn.Close()
-		slog.Info("Connection closed")
-	}()
-
 	slog.Info("New connection", "addr", conn.RemoteAddr().String())
 
+	plr, exists := s.players[conn.RemoteAddr().String()]
+	if !exists {
+		plr = &player.Player{
+			Conn: conn,
+		}
+		s.players[conn.RemoteAddr().String()] = plr
+	}
+
+	// close player connection
+	defer s.closeConn(plr)
+
 	buf := make([]byte, packet.MaxPacketSizeInBytes)
-	state := fsm.NewFSM()
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -97,24 +107,24 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			return
 		}
 
-		slog.Info("New packet!", "id", pkt.ID(), "size", n, "state", state.State())
+		slog.Info("New packet!", "id", pkt.ID(), "size", n, "state", plr.State.State())
 
-		switch state.State() {
+		switch plr.State.State() {
 		case fsm.FSMStateHandshake:
-			s.handleHandshakeState(conn, pkt, state)
+			s.handleHandshakeState(plr, pkt)
 		case fsm.FSMStateStatus:
-			s.handleStatusState(conn, pkt)
+			s.handleStatusState(plr, pkt)
 		case fsm.FSMStateLogin:
-			s.handleLoginState(conn, pkt, state)
+			s.handleLoginState(plr, pkt)
 		case fsm.FSMStatePlay:
-			s.handlePlayState(conn, pkt)
+			s.handlePlayState(plr, pkt)
 		default:
-			slog.Error("State not implemented", "state", state.State())
+			slog.Error("State not implemented", "state", plr.State.State())
 		}
 	}
 }
 
-func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, state *fsm.FSM) {
+func (s *Server) handleHandshakeState(plr *player.Player, pkt *packet.Packet) {
 	handshakePkt, err := protocol.ReceiveHandshakePacket(pkt)
 	if err != nil {
 		slog.Error("Error reading handshake", "err", err.Error())
@@ -125,7 +135,7 @@ func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, sta
 
 	switch handshakePkt.NextState {
 	case protocol.HandshakeNextStateStatus:
-		state.SetState(fsm.FSMStateStatus)
+		plr.State.SetState(fsm.FSMStateStatus)
 		// show motd
 		statusRespPkt, err := protocol.CreateStatusResponsePacket(s.statusResponse)
 		if err != nil {
@@ -133,19 +143,20 @@ func (s *Server) handleHandshakeState(conn *net.TCPConn, pkt *packet.Packet, sta
 			return
 		}
 
-		err = s.sendPacket(conn, statusRespPkt)
+		err = plr.SendPacket(statusRespPkt)
 		if err != nil {
-			slog.Error("Error sending status response bytes")
+			slog.Error("Error sending status response bytes", "err", err.Error())
 			return
 		}
+
 	case protocol.HandshakeNextStateLogin:
-		state.SetState(fsm.FSMStateLogin)
+		plr.State.SetState(fsm.FSMStateLogin)
 	default:
-		slog.Error("next state not implemented", "nextState", handshakePkt.NextState)
+		slog.Error("next state not implemented", "state", handshakePkt.NextState)
 	}
 }
 
-func (s *Server) handleStatusState(conn *net.TCPConn, pkt *packet.Packet) {
+func (s *Server) handleStatusState(plr *player.Player, pkt *packet.Packet) {
 	if pkt.Buffer().Len() == 0 {
 		return
 	}
@@ -162,14 +173,14 @@ func (s *Server) handleStatusState(conn *net.TCPConn, pkt *packet.Packet) {
 		return
 	}
 
-	err = s.sendPacket(conn, pingRespPkt)
+	err = plr.SendPacket(pingRespPkt)
 	if err != nil {
 		slog.Error("Error sending ping response bytes")
 		return
 	}
 }
 
-func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet, state *fsm.FSM) {
+func (s *Server) handleLoginState(plr *player.Player, pkt *packet.Packet) {
 	slog.Info("New Login Packet", "id", pkt.ID())
 
 	switch pkt.ID() {
@@ -182,14 +193,19 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet, state *
 
 		slog.Info("Hello, Player!", "name", loginStartPkt.Name)
 
+		plr.Name = loginStartPkt.Name
+		plr.UUID = uuid.GenerateUUID() // generating a random UUID for now
+		plr.IsLoggedIn = true
+
 		// TODO: implement encryption!!!
 
-		loginSuccessPkt, err := protocol.CreateLoginSuccessPacket(uuid.GenerateUUID(), loginStartPkt.Name)
+		loginSuccessPkt, err := protocol.CreateLoginSuccessPacket(plr.UUID, loginStartPkt.Name)
 		if err != nil {
 			slog.Error("error creating login success packet", "err", err.Error())
 			return
 		}
-		err = s.sendPacket(conn, loginSuccessPkt)
+
+		err = plr.SendPacket(loginSuccessPkt)
 		if err != nil {
 			slog.Error("Error sending login success bytes")
 			return
@@ -201,26 +217,24 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet, state *
 			return
 		}
 
-		err = s.sendPacket(conn, joinGamePkt)
+		err = plr.SendPacket(joinGamePkt)
 		if err != nil {
 			slog.Error("Error sending join game bytes")
 			return
 		}
 
 		// change the state to game mode
-		state.SetState(fsm.FSMStatePlay)
-	case 0x01:
-		slog.Error("login encryption response not implemented yet")
-	case 0x03:
-		slog.Info("Login success!")
+		plr.State.SetState(fsm.FSMStatePlay)
 	default:
 		slog.Error("login id not implemented", "id", pkt.ID())
 	}
 
 }
 
-func (s *Server) handlePlayState(conn *net.TCPConn, pkt *packet.Packet) {
+func (s *Server) handlePlayState(plr *player.Player, pkt *packet.Packet) {
 	switch pkt.ID() {
+	case packet.IDClientKeepAlive:
+		slog.Info("Client sent KeepAlive packet!")
 	case packet.IDClientClientSettings: // Sent when the player connects, or when settings are changed.
 		clientSettings, err := protocol.ReceiveClientSettings(pkt)
 		if err != nil {
@@ -242,7 +256,7 @@ func (s *Server) handlePlayState(conn *net.TCPConn, pkt *packet.Packet) {
 				return
 			}
 
-			err = s.sendPacket(conn, pluginMessagePkt)
+			err = plr.SendPacket(pluginMessagePkt)
 			if err != nil {
 				slog.Error("Error sending plugin message bytes")
 				return
@@ -261,13 +275,12 @@ func (s *Server) handlePlayState(conn *net.TCPConn, pkt *packet.Packet) {
 	}
 }
 
-func (s *Server) sendPacket(conn net.Conn, pkt *packet.Packet) error {
-	pktBytes, err := pkt.MarshalBinary()
-	if err != nil {
-		slog.Error("error marshalling packet", "err", err.Error())
-		return err
+func (s *Server) closeConn(plr *player.Player) error {
+	addr := plr.Conn.RemoteAddr().String()
+	_, exists := s.players[addr]
+	if exists {
+		delete(s.players, addr)
 	}
-
-	_, err = conn.Write(pktBytes)
-	return err
+	slog.Info("Connection Closed", "name", plr.Name, "addr", addr)
+	return plr.Conn.Close()
 }

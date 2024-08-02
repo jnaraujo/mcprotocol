@@ -2,6 +2,7 @@ package raknet
 
 import (
 	"encoding/binary"
+	"math"
 	"testing"
 
 	"github.com/jnaraujo/mcprotocol/api/uuid"
@@ -206,4 +207,29 @@ func TestReadInt(t *testing.T) {
 	value, err := buf.ReadInt()
 	assert.Nil(t, err)
 	assert.Equal(t, int32(123456), value)
+}
+
+func TestReadDouble(t *testing.T) {
+	expected := 3123123123.313123
+
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, math.Float64bits(expected))
+
+	buf := NewBuffer()
+	buf.WriteBytes(b)
+
+	actual, err := buf.ReadDouble()
+	assert.Nil(t, err)
+	assert.Equal(t, expected, actual)
+}
+
+func TestWriteDouble(t *testing.T) {
+	expected := -9393123123123.3131231
+
+	buf := NewBuffer()
+	buf.WriteDouble(-9393123123123.3131231)
+
+	actual, err := buf.ReadDouble()
+	assert.Nil(t, err)
+	assert.Equal(t, expected, actual)
 }

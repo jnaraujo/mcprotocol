@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 
 	"github.com/jnaraujo/mcprotocol/api/uuid"
 )
@@ -245,6 +246,23 @@ func (buf *Buffer) ReadInt() (int32, error) {
 		return 0, err
 	}
 	return int32(binary.BigEndian.Uint32(b)), nil
+}
+
+func (buf *Buffer) WriteDouble(d float64) error {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, math.Float64bits(d))
+	_, err := buf.data.Write(b)
+	return err
+}
+
+func (buf *Buffer) ReadDouble() (float64, error) {
+	b := make([]byte, 8)
+	_, err := buf.data.Read(b)
+	if err != nil {
+		return 0, err
+	}
+
+	return math.Float64frombits(binary.BigEndian.Uint64(b)), nil
 }
 
 func (buf *Buffer) Len() int {

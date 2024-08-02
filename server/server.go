@@ -248,6 +248,14 @@ func (s *Server) handlePlayState(conn *net.TCPConn, pkt *packet.Packet) {
 				return
 			}
 		}
+	case packet.IDClientPlayerPosition:
+		playerPosition, err := protocol.ReceivePlayerPosition(pkt)
+		if err != nil {
+			slog.Error("error receiving player position", "err", err.Error())
+			return
+		}
+
+		_ = playerPosition
 	default:
 		slog.Error("Play State not implemented yet", "id", pkt.ID())
 	}

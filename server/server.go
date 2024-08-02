@@ -1,9 +1,11 @@
 package server
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"net"
+	"syscall"
 
 	"github.com/jnaraujo/mcprotocol/api/uuid"
 	"github.com/jnaraujo/mcprotocol/auth"
@@ -77,11 +79,15 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			if err == io.EOF {
+			switch {
+			case errors.Is(err, net.ErrClosed),
+				errors.Is(err, io.EOF),
+				errors.Is(err, syscall.EPIPE):
 				return
+			default:
+				slog.Error("Error reading from connection", "err", err.Error())
+				continue
 			}
-			slog.Error("Error reading from connection", "err", err.Error())
-			continue
 		}
 
 		pkt := new(packet.Packet)
@@ -91,7 +97,7 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			return
 		}
 
-		slog.Info("New packet!", "id", pkt.ID(), "state", state.State())
+		slog.Info("New packet!", "id", pkt.ID(), "size", n, "state", state.State())
 
 		switch state.State() {
 		case fsm.FSMStateHandshake:
@@ -100,6 +106,8 @@ func (s *Server) handleConnection(conn *net.TCPConn) {
 			s.handleStatusState(conn, pkt)
 		case fsm.FSMStateLogin:
 			s.handleLoginState(conn, pkt, state)
+		case fsm.FSMStatePlay:
+			s.handlePlayState(conn, pkt)
 		default:
 			slog.Error("State not implemented", "state", state.State())
 		}
@@ -209,6 +217,40 @@ func (s *Server) handleLoginState(conn *net.TCPConn, pkt *packet.Packet, state *
 		slog.Error("login id not implemented", "id", pkt.ID())
 	}
 
+}
+
+func (s *Server) handlePlayState(conn *net.TCPConn, pkt *packet.Packet) {
+	switch pkt.ID() {
+	case packet.IDClientClientSettings: // Sent when the player connects, or when settings are changed.
+		clientSettings, err := protocol.ReceiveClientSettings(pkt)
+		if err != nil {
+			slog.Error("error receiving client settings packet", "err", err.Error())
+			return
+		}
+		_ = clientSettings
+		// I don't know exactly how to deal with it yet <-<
+	case packet.IDClientPluginMessage: // Plugin Message
+		pluginMessage, err := protocol.ReceivePluginMessage(pkt)
+		if err != nil {
+			slog.Error("error receiving plugin message packet", "err", err.Error())
+			return
+		}
+		if pluginMessage.Channel == "MC|Brand" {
+			pluginMessagePkt, err := protocol.CreatePluginMessagePacket(pluginMessage)
+			if err != nil {
+				slog.Error("error creating plugin message packet", "err", err.Error())
+				return
+			}
+
+			err = s.sendPacket(conn, pluginMessagePkt)
+			if err != nil {
+				slog.Error("Error sending plugin message bytes")
+				return
+			}
+		}
+	default:
+		slog.Error("Play State not implemented yet", "id", pkt.ID())
+	}
 }
 
 func (s *Server) sendPacket(conn net.Conn, pkt *packet.Packet) error {

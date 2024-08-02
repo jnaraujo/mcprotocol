@@ -145,3 +145,21 @@ func CreateJoinGamePacket() (*packet.Packet, error) {
 
 	return pkt, nil
 }
+
+func CreateSpawnPositionPacket() (*packet.Packet, error) {
+	pkt := packet.NewPacket(packet.IDServerSpawnPosition)
+
+	err := pkt.Buffer().WriteInt(0) // x
+	if err != nil {
+		return nil, err
+	}
+	err = pkt.Buffer().WriteInt(200) // y
+	if err != nil {
+		return nil, err
+	}
+	err = pkt.Buffer().WriteInt(0) // z
+	if err != nil {
+		return nil, err
+	}
+	return pkt, nil
+}

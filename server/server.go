@@ -245,6 +245,17 @@ func (s *Server) handleLoginState(plr *player.Player, pkt *packet.Packet) {
 
 		// change the state to game mode
 		plr.State.SetState(fsm.FSMStatePlay)
+
+		// send the spawn position
+		spawnPositionPkt, err := protocol.CreateSpawnPositionPacket()
+		if err != nil {
+			slog.Error("error creating spawn position packet", "err", err.Error())
+		}
+		err = plr.SendPacket(spawnPositionPkt)
+		if err != nil {
+			slog.Error("error sending spawn position")
+			return
+		}
 	default:
 		slog.Error("login id not implemented", "id", pkt.ID())
 	}

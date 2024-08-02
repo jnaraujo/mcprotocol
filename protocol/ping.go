@@ -20,7 +20,7 @@ func ReceivePingRequestPacket(pkt *packet.Packet) (*PingRequestPacket, error) {
 }
 
 func CreatePingResponsePacket(payload int64) (*packet.Packet, error) {
-	pkt := packet.NewPacket(packet.IDPing)
+	pkt := packet.NewPacket(0x01)
 
 	err := pkt.Buffer().WriteLong(payload)
 	if err != nil {

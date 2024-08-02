@@ -36,7 +36,7 @@ func CreateStatusResponsePacket(response StatusResponse) (*packet.Packet, error)
 		return nil, err
 	}
 
-	p := packet.NewPacket(packet.IDServerIdentification)
+	p := packet.NewPacket(0x00)
 	p.Buffer().WriteString(string(respBytes))
 
 	return p, nil
